@@ -52,9 +52,9 @@ def start():
                 inst_structured = [inst[0:4], inst[4:], None, None]
             elif(inst[0:3] == 'ret'):
                 inst_structured = [inst[0:3], None, None, None]
+            instructions.append(inst_structured)
         new_inst = input("Do you want to add other instruction? (Y/N)")
-    instructions.append(inst_structured)
-
+    print(instructions)
 def validation(inst): #function which uses regex to validates the format of the instruction
     if inst[0:4] == 'load' or inst[0:5] == 'store':
         if(inst[7:9] == '16'):
