@@ -15,8 +15,12 @@ The objective of this project is to construct one of the main concepts taken in 
 -print_register_status prints register status
 -print_reg_file prints register file
 -empty_rs which initialzes all the values in the reservation station to None
+-Tomsulo where everything is combined and where we make sure that we stall if needed and handle all instructions correctly using our implemented flags
+-stepbystep through a loop we print every cycle the tables implemented
 Stages is divided into these functions : 
 1- issue : takes in instruction currently being executed, the last_written to be able to track the reservation stations being written to, and the PC. This function checks first if it can issue by trying to find an empty reservation station, and when it does it initializes the needed entries of the tracing table accordingly whilst checking if there is any data dependencies to be handled. Lastly, we send the issue flag.
 2- execution: takes in instruction_position to be able to track which elements as the execution is out of order, current_rs , and instruction_execution_cycle to be updated. This function handles each instruction differently according to the functionality it does along with the different cycles it takes to finish. According to the cycles it takes, we initiate the values of the execution start and end and in between them we apply the functionality needed (if it takes more than one cycle) and at the last cycle we give the signal to start writing. All of this while taking into consederation different reservation stations using if statments and lists to be able to track which one is currently used. Lastly, we return instruction execution cycle.
-3- write: takes in instruction currently being executed , current_rs being used, and PC. This function checks the instruction, any existing dependency and makes sure that the
+3- write: takes in instruction currently being executed , current_rs being used, and PC. This function checks the instruction, any existing dependency and makes sure that the current reservation station is the one being used and if it meets all the requirments  to be written, which is also tested through the implemented different flags for distinct function, it is written. We also re-intialize the register in the register status being used to be none to release any data dependency. 
+
+
 
