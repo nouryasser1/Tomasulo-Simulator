@@ -92,7 +92,6 @@ def issue (instruction, last_written, PC): # the current instruction against the
     global call_ret_issue_flag
     global branch_issue_flag
     global branch_instruction_position
-    print(instruction, "issuing")
     if(instruction[0] == "load"):
         if(last_written != "LOAD1" or last_written != "LOAD2"):
             if(LOAD_1["Busy"] == "N"):
@@ -111,7 +110,6 @@ def issue (instruction, last_written, PC): # the current instruction against the
                 issue_rs["Busy"] = "Y"
                 issue_rs["Op"] = instruction[0]
                 issue_rs["Vj"] = RegFile[instruction[3]]
-                print("vj",RegFile[instruction[3]],instruction[3] )
                 issue_rs["Vk"] = None
                 issue_rs["Qj"] = None
                 issue_rs["Qk"] = None
@@ -510,15 +508,12 @@ def write(instruction, current_rs, PC):
             if(current_rs["Name"] == RegStatus[instruction[1]]):
                 RegStatus[instruction[1]] = None
             RegFile[instruction[1]] = memory[current_rs["A"]]
-            print("load:",current_rs["A"] , current_rs["Name"], instruction[1])
             write_val = memory[current_rs["A"]]
-            print("load:",memory[current_rs["A"]])
         else:
             write_val = 0
         current_rs = empty_rs(current_rs)
     elif(current_rs["Op"] == "store"):
         memory[current_rs["A"]] = current_rs["Vj"]
-        print("store:",memory[current_rs["A"]])
         current_rs = empty_rs(current_rs)
         RegStatus[instruction[3]] = None
 
@@ -666,9 +661,7 @@ def tomasulo(total_clock_cycles, PC):
         if(len(waiting_for_write) != 0): #something is awaiting its turn for write
             index = waiting_for_write[0] #index of the instruction awaiting write
             last_written = current_reservation_stations[index]["Name"]
-            print("last_written: ", last_written)
             NextPC =  write(issued[index], current_reservation_stations[index], PC)
-            print("beq",NextPC)
             waiting_for_write.pop(0)
             TraceTable[index]["Write"] = total_clock_cycles
 
@@ -692,7 +685,6 @@ def tomasulo(total_clock_cycles, PC):
     if(last_written is not None  and last_written != "BEQ" and last_written != "CALL/RET"):
         RS_return_write_values(last_written, write_val)
     #issue
-    print("now issue",PC)
     if((PC-int(starting_address)) < len(instructions)): #check if there are instructions left to issue
         if(not cal_ret_stall_issue_flag):
             issue_flag = issue(instructions[PC-int(starting_address)],last_written, PC)
@@ -710,7 +702,6 @@ def tomasulo(total_clock_cycles, PC):
                 TracingDictionary["Instructions"] = inst
                 TracingDictionary["Issue"] = total_clock_cycles
                 TraceTable.append(TracingDictionary.copy())
-        print("BT", branch_taken_flag)
         if(branch_taken_flag or call_ret_write_flag): #if i am jumping
             cal_ret_stall_issue_flag = False
             call_ret_issue_flag = False
@@ -793,8 +784,6 @@ def stepbystep(next):
         print("--------------------Tomasulo's Algorithm ------------------")
         
         PC = tomasulo(total_clock_cycles, PC)
-        print(PC,"PC")
-        print(memory[0])
         print("current clk cycle: ", total_clock_cycles)
         print("\nTracing Table: ")
         print_trace_table()
