@@ -1,0 +1,22 @@
+﻿Journal File
+Nour & Sarah
+May 16, 8:00 PM brainstorming how to tackle the problem and starting to write the code
+May 18 10:00 PM wrote the printing functions for our tables by dividing them 2 and 2
+May 19, 2:00 AM started combining all functions together
+May 19: 3:00 AM finished combining together and fixed issues with tomasulo function
+May 20, 6:00 PM caught problems in our logic for beq, loop, storing and fixed it
+May 20, 6:00 PM - 12:00 AM debugging and fixing the errors
+
+
+Sarah 
+May 16, 10:00 PM created the functions : execute, write, empty_rs, and tomasulo
+May 16, 12:00 AM finished execution
+May 17, 2:00 PM finished write and started writing tomasulo
+May 17, 5:00 PM finished writing Tomasulo
+
+
+Nour
+May 16, 10:00 PM created the functions: start, stepbystep,RS_return_write_values, validate, and issue
+May 16, 11:00 PM debugging issues with the validation and input
+May 17, 2:00 AM finishing validation and start
+May 17, 4:00 PM finished issue function and the needed functions within it
