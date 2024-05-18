@@ -1,0 +1,10 @@
+addi r6,r0,-1 
+addi r7,r0,1 1
+load r6, 0(r0) 
+load r7, 1(r0) 
+store r3, 0(r0) 
+store r2, 1(r0) 
+call 28
+mul r4, r0,r2
+add r2,r3,r3 
+mul r5,r2,r3

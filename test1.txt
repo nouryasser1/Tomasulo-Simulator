@@ -1,0 +1,17 @@
+load r5, 0(r0)
+load r2, 1(r0)  
+load r4, 2(r0) 
+load r6, 3(r0) 
+load r1, 4(r0) 
+mul r0, r2, r4 
+mul r4, r2, r6 
+add r6, r4, r4 
+beq r2, r2, 2 
+addi r2, r2, 1
+ret  
+nand r6, r5, r1  
+beq r6, r5, 3 
+store r1,2(r2) 
+mul r2, r4, r7
+call 29 
+add r0 , r0 , r0
