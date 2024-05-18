@@ -1,6 +1,6 @@
 import tabulate
 import re
-import os
+
 #Lists Used
 memory = []
 instructions = []
@@ -53,9 +53,12 @@ MUL = {"Name" : "MUL", "Busy" : 'N', "Op" : None, "Vj" : None, "Vk" : None, "Qj"
 RS = [LOAD_1, LOAD_2, STORE, BEQ, CALL_OR_RET, ADD_OR_ADDI_1, ADD_OR_ADDI_2, ADD_OR_ADDI_3, ADD_OR_ADDI_4, NAND_1, NAND_2, MUL]
 
 def print_RS_table():
-    headings = RS[0].keys()
-    table = [unit.values() for unit in RS]
+    headings = list(RS[0].keys())
+    headings = headings[:-1]
+    table = [list(row.values()) for row in RS]
+    table = [row[:-1] for row in table]
     print(tabulate.tabulate(table, headings, tablefmt="double_outline"))
+    
 
 #Tracing Table
 TracingDictionary = {"Instructions" : None, "Issue" : None, "Execution Start" : None, "Execution End" : None, "Write" : None}
@@ -89,7 +92,7 @@ def issue (instruction, last_written, PC): # the current instruction against the
     global call_ret_issue_flag
     global branch_issue_flag
     global branch_instruction_position
-
+    print(instruction, "issuing")
     if(instruction[0] == "load"):
         if(last_written != "LOAD1" or last_written != "LOAD2"):
             if(LOAD_1["Busy"] == "N"):
@@ -103,18 +106,19 @@ def issue (instruction, last_written, PC): # the current instruction against the
             else:
                 issue_flag = False
                 issue_rs = None
-
+            
             if(issue_flag):
                 issue_rs["Busy"] = "Y"
                 issue_rs["Op"] = instruction[0]
                 issue_rs["Vj"] = RegFile[instruction[3]]
+                print("vj",RegFile[instruction[3]],instruction[3] )
                 issue_rs["Vk"] = None
                 issue_rs["Qj"] = None
                 issue_rs["Qk"] = None
                 issue_rs["A"] = int(instruction[2])
                 issue_rs["Imm"] = None
 
-                if (instruction[3] != "r0" and RegStatus[instruction[3]] != None):
+                if (RegStatus[instruction[3]] != None):
                     issue_rs["Vj"] = None
                     issue_rs["Qj"] = RegStatus[instruction[3]]
                 if(instruction[1] != "r0"):
@@ -141,10 +145,12 @@ def issue (instruction, last_written, PC): # the current instruction against the
                 if (instruction[1] != "r0" and RegStatus[instruction[1]] != None):
                     issue_rs["Vj"] = None
                     issue_rs["Qj"] = RegStatus[instruction[1]]
-
+                
                 if (instruction[3] != "r0" and RegStatus[instruction[3]] != None):
                     issue_rs["Vk"] = None
                     issue_rs["Qk"] = RegStatus[instruction[3]]
+
+                RegStatus[instruction[3]] = issue_rs["Name"]
                 
                 current_reservation_stations.append(issue_rs)
                 issued.append(instruction)
@@ -340,6 +346,7 @@ def execute(instruction_position, current_rs, instruction_execution_cycle):
     if(current_rs["Op"] == "load"):
         try:
             if(current_rs["Qj"] is None and instruction_execution_cycle < 6):
+                current_rs["Vj"] = RegFile[issued[instruction_position][3]]
                 if(instruction_execution_cycle == 0):
                     TraceTable[instruction_position]["Execution Start"] = total_clock_cycles
                 if(instruction_execution_cycle == 1): #2nd clk cycle in execution
@@ -468,7 +475,9 @@ def execute(instruction_position, current_rs, instruction_execution_cycle):
                     TraceTable[instruction_position]["Execution Start"] = total_clock_cycles
                 if(instruction_execution_cycle == 7):
                     mulV= current_rs["Vj"] * current_rs["Vk"]
-                    TraceTable[instruction_position]["Execution Start"] = total_clock_cycles
+                    binary_representation = bin(mulV)[2:]
+                    if len(binary_representation) > 16:
+                        mulV = int(binary_representation[-16:])
                     TraceTable[instruction_position]["Execution End"] = total_clock_cycles
                     write_flag[instruction_position] = True
                 return(instruction_execution_cycle+1)
@@ -494,20 +503,26 @@ def write(instruction, current_rs, PC):
     global branch_taken_flag
     global number_of_branch_taken
     global call_ret_write_flag
-    global write_val
+    global write_val, memory
     pc = PC
     if(current_rs["Op"] == "load"):
         if(instruction[1] != "r0"):
             if(current_rs["Name"] == RegStatus[instruction[1]]):
-                RegFile[instruction[1]] = memory[current_rs["A"]]
                 RegStatus[instruction[1]] = None
+            RegFile[instruction[1]] = memory[current_rs["A"]]
+            print("load:",current_rs["A"] , current_rs["Name"], instruction[1])
             write_val = memory[current_rs["A"]]
+            print("load:",memory[current_rs["A"]])
         else:
             write_val = 0
         current_rs = empty_rs(current_rs)
     elif(current_rs["Op"] == "store"):
         memory[current_rs["A"]] = current_rs["Vj"]
+        print("store:",memory[current_rs["A"]])
         current_rs = empty_rs(current_rs)
+        RegStatus[instruction[3]] = None
+
+
     elif(current_rs["Op"] == "beq"):
         if(current_rs["Vj"] == current_rs["Vk"]):
             branch_taken_flag = True
@@ -528,22 +543,26 @@ def write(instruction, current_rs, PC):
     elif(current_rs["Op"] == "add"):
         if(instruction[1] != "r0"):
             if(current_rs["Name"] == RegStatus[instruction[1]]):
-                if(current_rs["Name"] == "ADD/ADDI 1"):
-                    RegFile[instruction[1]] = addV[0]
-                elif(current_rs["Name"] == "ADD/ADDI 2"):
-                    RegFile[instruction[1]] = addV[1]
-                elif(current_rs["Name"] == "ADD/ADDI 3"):
-                    RegFile[instruction[1]] = addV[2]
-                else:
-                    RegFile[instruction[1]] = addV[3]
+            #     if(current_rs["Name"] == "ADD/ADDI 1"):
+            #         RegFile[instruction[1]] = addV[0]
+            #     elif(current_rs["Name"] == "ADD/ADDI 2"):
+            #         RegFile[instruction[1]] = addV[1]
+            #     elif(current_rs["Name"] == "ADD/ADDI 3"):
+            #         RegFile[instruction[1]] = addV[2]
+            #     else:
+            #         RegFile[instruction[1]] = addV[3]
                 RegStatus[instruction[1]] = None
             if(current_rs["Name"] == "ADD/ADDI 1"):
+                    RegFile[instruction[1]] = addV[0]
                     write_val = addV[0]
             elif(current_rs["Name"] == "ADD/ADDI 2"):
+                RegFile[instruction[1]] = addV[1]
                 write_val = addV[1]
             elif(current_rs["Name"] == "ADD/ADDI 3"):
+                RegFile[instruction[1]] = addV[2]
                 write_val = addV[2]
             else:
+                RegFile[instruction[1]] = addV[3]
                 write_val = addV[3]
         else:
             write_val = 0
@@ -551,22 +570,26 @@ def write(instruction, current_rs, PC):
     elif(current_rs["Op"] == "addi"):
         if(instruction[1] != "r0"):
             if(current_rs["Name"] == RegStatus[instruction[1]]):
-                if(current_rs["Name"] == "ADD/ADDI 1"):
-                    RegFile[instruction[1]] = addV[0]
-                elif(current_rs["Name"] == "ADD/ADDI 2"):
-                    RegFile[instruction[1]] = addV[1]
-                elif(current_rs["Name"] == "ADD/ADDI 3"):
-                    RegFile[instruction[1]] = addV[2]
-                else:
-                    RegFile[instruction[1]] = addV[3]
-                RegStatus[instruction[1]] = None
+            #     if(current_rs["Name"] == "ADD/ADDI 1"):
+            #         RegFile[instruction[1]] = addV[0]
+            #     elif(current_rs["Name"] == "ADD/ADDI 2"):
+            #         RegFile[instruction[1]] = addV[1]
+            #     elif(current_rs["Name"] == "ADD/ADDI 3"):
+            #         RegFile[instruction[1]] = addV[2]
+            #     else:
+            #         RegFile[instruction[1]] = addV[3]
+                 RegStatus[instruction[1]] = None
             if(current_rs["Name"] == "ADD/ADDI 1"):
+                    RegFile[instruction[1]] = addV[0]
                     write_val = addV[0]
             elif(current_rs["Name"] == "ADD/ADDI 2"):
-                write_val = addV[1]
+                    RegFile[instruction[1]] = addV[1]
+                    write_val = addV[1]
             elif(current_rs["Name"] == "ADD/ADDI 3"):
-                write_val = addV[2]
+                    RegFile[instruction[1]] = addV[2]
+                    write_val = addV[2]
             else:
+                RegFile[instruction[1]] = addV[3]
                 write_val = addV[3]
         else:
             write_val = 0
@@ -574,16 +597,19 @@ def write(instruction, current_rs, PC):
     elif(current_rs["Op"] == "nand"):
         if(instruction[1] != "r0"):
             if(current_rs["Name"] == RegStatus[instruction[1]]):
-                if(current_rs["Name"] == "NAND1"):
-                    RegFile[instruction[1]] = nandV[0]
-                    write_val = nandV[0]
-                else:
-                    RegFile[instruction[1]] = nandV[1]
-                    write_val = nandV[1]
+                # if(current_rs["Name"] == "NAND1"):
+                #     RegFile[instruction[1]] = nandV[0]
+                #     write_val = nandV[0]
+                # else:
+                #     RegFile[instruction[1]] = nandV[1]
+                #     write_val = nandV[1]
                 RegStatus[instruction[1]] = None
             if(current_rs["Name"] == "NAND1"):
+                    RegFile[instruction[1]] = nandV[0]
+
                     write_val = nandV[0]
             else:
+                    RegFile[instruction[1]] = nandV[1]
                     write_val = nandV[1]
         else:
             write_val = 0
@@ -591,9 +617,8 @@ def write(instruction, current_rs, PC):
 
     elif(current_rs["Op"] == "mul"):
         if(instruction[1] != "r0"):
-            if(current_rs["Name"] == RegStatus[instruction[1]]):
-                RegFile[instruction[1]] = mulV
-                RegStatus[instruction[1]] = None
+            RegFile[instruction[1]] = mulV
+            RegStatus[instruction[1]] = None
             write_val = mulV
         else:
             write_val = 0
@@ -603,11 +628,14 @@ def write(instruction, current_rs, PC):
 def RS_return_write_values(current_rs, w_val):
     for unit in RS:
         if(unit["Qj"] == current_rs):
-            unit["Qj"] = None
-            unit["Vj"] = w_val
+            if(unit["Op"]!="load"):
+                unit["Qj"] = None
+                unit["Vj"] = w_val
+            else:
+                unit["Qj"] = None
         if(unit["Qk"] == current_rs):
             unit["Qk"] = None
-            unit["Vk"] = w_val
+            unit["Vk"] = w_val           
 
 
 def tomasulo(total_clock_cycles, PC):
@@ -638,7 +666,9 @@ def tomasulo(total_clock_cycles, PC):
         if(len(waiting_for_write) != 0): #something is awaiting its turn for write
             index = waiting_for_write[0] #index of the instruction awaiting write
             last_written = current_reservation_stations[index]["Name"]
+            print("last_written: ", last_written)
             NextPC =  write(issued[index], current_reservation_stations[index], PC)
+            print("beq",NextPC)
             waiting_for_write.pop(0)
             TraceTable[index]["Write"] = total_clock_cycles
 
@@ -659,16 +689,28 @@ def tomasulo(total_clock_cycles, PC):
                         waiting_for_write.append(i)
                         write_flag[i] = False
     
-    if(last_written is not None and last_written != "STORE" and last_written != "BEQ" and last_written != "CALL/RET"):
+    if(last_written is not None  and last_written != "BEQ" and last_written != "CALL/RET"):
         RS_return_write_values(last_written, write_val)
     #issue
-    if((PC) < len(instructions)): #check if there are instructions left to issue
+    print("now issue",PC)
+    if((PC-int(starting_address)) < len(instructions)): #check if there are instructions left to issue
         if(not cal_ret_stall_issue_flag):
-            issue_flag = issue(instructions[PC],last_written, PC)
+            issue_flag = issue(instructions[PC-int(starting_address)],last_written, PC)
+             
             if(issue_flag):
-                TracingDictionary["Instructions"] = instructions[PC]
+                if(instructions[PC-int(starting_address)][0] == "load" or instructions[PC-int(starting_address)][0] == "store"):
+                    inst = instructions[PC-int(starting_address)][0]+" "+instructions[PC-int(starting_address)][1] +", "+instructions[PC-int(starting_address)][2] + " (" + instructions[PC-int(starting_address)][3] + ")"
+                elif(instructions[PC-int(starting_address)][0] == "call"):
+                    inst = instructions[PC-int(starting_address)][0]+" "+instructions[PC-int(starting_address)][1] 
+                elif(instructions[PC-int(starting_address)][0] == "ret"):
+                    inst = instructions[PC-int(starting_address)][0]
+                else:
+                    inst = instructions[PC-int(starting_address)][0]+" "+instructions[PC-int(starting_address)][1] +", "+instructions[PC-int(starting_address)][2] + ", " + instructions[PC-int(starting_address)][3] 
+
+                TracingDictionary["Instructions"] = inst
                 TracingDictionary["Issue"] = total_clock_cycles
                 TraceTable.append(TracingDictionary.copy())
+        print("BT", branch_taken_flag)
         if(branch_taken_flag or call_ret_write_flag): #if i am jumping
             cal_ret_stall_issue_flag = False
             call_ret_issue_flag = False
@@ -688,6 +730,21 @@ def tomasulo(total_clock_cycles, PC):
             return PC
         else:
             return (PC + 1)
+    elif(branch_taken_flag  or call_ret_write_flag):
+        cal_ret_stall_issue_flag = False
+        call_ret_issue_flag = False
+        for inst in range(branch_instruction_position + 1, len(current_reservation_stations)):
+            if(issued[inst][0] != "store" and issued[inst][0] != "beq" and issued[inst][0] != "ret"): #the instructions that dont write
+                if(issued[inst][0] == "call"):
+                    if(RegStatus["r1"] == "CALL/RET"):
+                        RegStatus["r1"] = None
+                elif(RegStatus[issued[inst][1]] == current_reservation_stations[inst]["Name"]):
+                    RegStatus[issued[inst][1]] = None
+            current_reservation_stations[inst] = empty_rs(current_reservation_stations[inst])
+        issued = issued[:branch_instruction_position+1]
+        current_reservation_stations = current_reservation_stations[:branch_instruction_position+1]
+        TraceTable = TraceTable[:branch_instruction_position+1]
+        return NextPC
     else:
         return PC
 
@@ -711,10 +768,10 @@ def validation(inst): #function which uses regex to validates the format of the 
             inst_pattern = re.compile(r'(addi)r[0-7],r[0-7],-?(?:1[0-6]|[0-9])$')
             matching = inst_pattern.match(inst)
     elif inst[0:4] == 'call':
-        if (inst[4:6] == '16'):
+        if (inst[4:6] == '64'):
             return False
         else:
-            inst_pattern = re.compile(r'(call)(-?(?:1[0-6]|[0-9]))$')
+            inst_pattern = re.compile(r'(call)(-?(?:[1-5]?[0-9]|6[0-4]|[0-9]))$')
             matching = inst_pattern.match(inst)
     elif inst[0:3] == 'ret':
         inst_pattern = re.compile(r'(ret)$')
@@ -728,13 +785,16 @@ def validation(inst): #function which uses regex to validates the format of the 
 
 def stepbystep(next):
     global total_clock_cycles
-    PC = starting_address
+    global starting_address
+    global memory
+    PC = int(starting_address)
     while(next == 'y' or next == 'Y'):
         total_clock_cycles += 1
-        #os.system("clear")
         print("--------------------Tomasulo's Algorithm ------------------")
+        
         PC = tomasulo(total_clock_cycles, PC)
-        print("PC bara: ", PC)
+        print(PC,"PC")
+        print(memory[0])
         print("current clk cycle: ", total_clock_cycles)
         print("\nTracing Table: ")
         print_trace_table()
@@ -750,56 +810,63 @@ def stepbystep(next):
 
 
 def start():
+    global starting_address
+    global memory
     print("--------------------Tomasulo's Algorithm ------------------")
     #Memory initialization
-    for i in range(6400):
+    for i in range(64000):
         memory.append(0)
     starting_address = (input("Please enter your starting adress: "))
     while(not(starting_address.isdigit())):
         starting_address = (input("Please enter your starting adress as an integer: "))
-    new_addr = 'Y'
-    while new_addr != 'N' and new_addr != 'n':
-        address = (input("Please enter a memory address you want to initialize: "))
-        data_in = (input("Please enter the data (16 bit decimal value): "))
-
-        if ((not address.isdigit()) or (not data_in.isdigit())):
-            print("Invalid address, not allowed")
-        else:
-            address = int(address)
-            data_in = int(data_in)
-            if address > 10 or data_in > 65536:
-                print("Invalid range")
+    address = 'Y'
+    print("Please enter a memory address you want to initialize or exit to cancel: ")
+    while address != "exit":
+        address = (input("address: "))
+        if(address != "exit"):
+            data_in = (input("data: "))
+            if ((not address.isdigit()) or (not data_in.isdigit()) ):
+                print("Invalid address, not allowed")
             else:
-                memory[address] = data_in
-
-        new_addr = input("Do you want to add other adresses? (Y/N)")
+                address = int(address)
+                data_in = int(data_in)
+                if address > 64000 or data_in > 65536 or data_in < 0:
+                    print("Invalid range")
+                else:
+                    memory[address] = data_in
+        
+        
+     
+        #new_addr = input("Do you want to add other adresses? (Y/N)")
         #print(new_addr)
 
     #Instructions intialization and validation
 
-    new_inst = 'y'
+    inst = 'y'
     inst_structured=[] #For applying the different structures of instructions
-    while new_inst != 'N' and new_inst != 'n':
-        inst = (input("Please enter an instruction you want to add to your program: "))
-        inst = inst.lower().replace(" ", "")
+    print("Please enter the instructions of your program and write exit when you are done: ")
+    while inst != "exit":
+        inst = (input("insturction: "))
+        if(inst != "exit"):
+            inst = inst.lower().replace(" ", "")
 
-        if (validation(inst) == False):
-            print("Invalid instruction")
-        else:
-            if(inst[0:4] == 'load'):
-                inst_structured=[inst[0:4],inst[4:6], inst[7:inst.index('(')], inst[inst.index('(')+1:inst.index(')')]]
-            elif(inst[0:5] == 'store'):
-                inst_structured = [inst[0:5], inst[5:7], inst[8:inst.index('(')],inst[inst.index('(') + 1:inst.index(')')]]
-            elif(inst[0:4] == 'addi' or inst[0:4] == 'nand'):
-                inst_structured = [inst[0:4], inst[4:6], inst[7:9], inst[10:]]
-            elif(inst[0:3] == 'beq' or inst[0:3] == 'add' or inst[0:3] == 'mul'):
-                inst_structured = [inst[0:3], inst[3:5], inst[6:8], inst[9:]]
-            elif(inst[0:4] == 'call'):
-                inst_structured = [inst[0:4], inst[4:], None, None]
-            elif(inst[0:3] == 'ret'):
-                inst_structured = [inst[0:3], None, None, None]
-            instructions.append(inst_structured)
-        new_inst = input("Do you want to add other instruction? (Y/N) ")
+            if (validation(inst) == False):
+                print("Invalid instruction")
+            else:
+                if(inst[0:4] == 'load'):
+                    inst_structured=[inst[0:4],inst[4:6], inst[7:inst.index('(')], inst[inst.index('(')+1:inst.index(')')]]
+                elif(inst[0:5] == 'store'):
+                    inst_structured = [inst[0:5], inst[5:7], inst[8:inst.index('(')],inst[inst.index('(') + 1:inst.index(')')]]
+                elif(inst[0:4] == 'addi' or inst[0:4] == 'nand'):
+                    inst_structured = [inst[0:4], inst[4:6], inst[7:9], inst[10:]]
+                elif(inst[0:3] == 'beq' or inst[0:3] == 'add' or inst[0:3] == 'mul'):
+                    inst_structured = [inst[0:3], inst[3:5], inst[6:8], inst[9:]]
+                elif(inst[0:4] == 'call'):
+                    inst_structured = [inst[0:4], inst[4:], None, None]
+                elif(inst[0:3] == 'ret'):
+                    inst_structured = [inst[0:3], None, None, None]
+                instructions.append(inst_structured)
+        #new_inst = input("Do you want to add other instruction? (Y/N) ")
 
     stepbystep('y') 
     print("--------------------Additional Information------------------")
